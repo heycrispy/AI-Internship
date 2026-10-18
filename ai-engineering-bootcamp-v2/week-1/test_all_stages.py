@@ -10,6 +10,8 @@ from pathlib import Path
 import httpx
 
 WORKDIR = Path(__file__).resolve().parent
+# venv layout differs by OS: Scripts\uvicorn.exe on Windows, bin/uvicorn elsewhere.
+UVICORN = WORKDIR / ".venv" / ("Scripts/uvicorn.exe" if sys.platform == "win32" else "bin/uvicorn")
 QUESTION = "What is Retrieval-Augmented Generation in one sentence?"
 
 
@@ -22,7 +24,7 @@ def free_port() -> int:
 def start_server(module: str, port: int) -> subprocess.Popen:
     return subprocess.Popen(
         [
-            str(WORKDIR / ".venv/bin/uvicorn"),
+            str(UVICORN),
             f"{module}:app",
             "--host",
             "127.0.0.1",
