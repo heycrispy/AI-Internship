@@ -9,6 +9,7 @@ Hands-on course materials for building production-style LLM APIs with **FastAPI*
 | 1 | `/ask` endpoint — typed I/O, structured output, guardrails, model selection, cost | [`week-1/`](week-1/) |
 | 1 v2 | Simplified class-ready `/ask` demo with one final API and optional stage references | [`week-1v2/`](week-1v2/) |
 | 2 | RAG and vector databases | [`week-2/`](week-2/) |
+| 3 | Capstone as an agent (Google ADK): tools, Think/Act/Observe trace, human approval, injection test | [`week-1v2/`](week-1v2/README.md#week-3-the-assistant-as-an-agent-google-adk) |
 
 ## Tech stack
 
