@@ -1,0 +1,7 @@
+{
+  "_note": "Synthetic demo calendar for Golden Hour Coffee Co. Not live availability. Edit these dates if they are in the past on demo day.",
+  "bookings": [
+    {"date": "2026-11-21", "start": "10:00", "end": "13:00", "event_type": "Corporate event", "status": "confirmed"},
+    {"date": "2026-12-05", "start": "14:00", "end": "18:00", "event_type": "Wedding", "status": "confirmed"}
+  ]
+}

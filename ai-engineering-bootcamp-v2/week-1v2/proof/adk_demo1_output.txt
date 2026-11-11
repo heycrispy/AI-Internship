@@ -1,0 +1,37 @@
+App "demo" can transfer between agents but has no context_cache_config. Every transfer swaps the system instruction and the tool set, so the request prefix changes and the whole prompt is re-sent uncached after each transfer. Set context_cache_config on the app to give each agent its own cache.
+Root node customer_support_router was cancelled by an external cancellation.
+Model: openai/gpt-4o-mini via LiteLlm (no GOOGLE_API_KEY set)
+
+--- BILLING ---
+User: I need to check my latest invoice. My email is bob@example.com. Can I get a refund?
+
+Agent: Your latest invoice is as follows:
+
+- **Invoice ID:** INV-2024-002
+- **Customer Name:** Bob Smith
+- **Amount:** $299.00
+- **Status:** Overdue
+- **Plan:** Enterprise Annual
+
+Would you like to proceed with a refund for this invoice? If so, please provide the reason for the refund.
+
+
+--- TECHNICAL ---
+User: My app keeps crashing every time I try to login. Is there an outage?
+
+Agent: The current status of the platform shows that all services are operational except for the authentication service, which is currently degraded. This could be the reason for the app crashing during login.
+
+Here are some suggested steps to try and resolve the issue:
+1. Clear the cache of your app or browser.
+2. Try logging in using incognito mode.
+3. If you are still facing issues, consider resetting your password.
+4. Be aware that if there have been three failed login attempts, you may be temporarily locked out for 30 minutes.
+
+If the issue persists after trying these steps, please let me know!
+
+
+--- ESCALATION ---
+User: Someone hacked my account! I see charges I didn't make. Email: jane@example.com. Urgent!
+
+Agent: I've created an escalation ticket for your issue with the ID: **ESC-2026-0042**. This is marked as urgent, and you can expect a response within 24 hours.
+

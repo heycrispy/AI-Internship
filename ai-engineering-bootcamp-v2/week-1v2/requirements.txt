@@ -5,3 +5,5 @@ python-dotenv
 streamlit
 chromadb
 langchain-text-splitters
+google-adk>=2.14
+litellm>=1.109

@@ -1,0 +1,40 @@
+# Coastal Golden Hour theme for agent_page.py (native Streamlit theming, Streamlit 1.66).
+# Contrast (WCAG): text on background 9.0:1, white on sage buttons 4.8:1, links 5.7:1.
+# Terracotta #BC7B57 is only 3.1:1 on cream, so it is used for accents, never for body text.
+
+[theme]
+base = "light"
+font = "sans-serif"
+baseRadius = "medium"
+showSidebarBorder = false
+
+backgroundColor = "#F8F4EB"          # warm cream
+secondaryBackgroundColor = "#E5E0D2" # sandy surfaces: inputs, code blocks, expanders
+textColor = "#3F4538"                # main text
+primaryColor = "#63775F"             # sage: primary buttons, focus, selected states
+borderColor = "#D6D1C4"
+linkColor = "#52654F"                # slightly darker sage so links stay readable
+
+codeBackgroundColor = "#EDE9DF"
+codeTextColor = "#3F4538"
+dataframeBorderColor = "#D6D1C4"
+dataframeHeaderBackgroundColor = "#E5E0D2"
+dataframeHeaderTextColor = "#3F4538"
+
+# st.warning (the approval card) gets a soft terracotta tint instead of yellow.
+yellowColor = "#BC7B57"
+yellowBackgroundColor = "#F3E6DC"
+yellowTextColor = "#7A4A30"
+# Chat avatars: customer = terracotta accent, assistant = sage (replaces default red/orange).
+redColor = "#BC7B57"
+orangeColor = "#63775F"
+# st.success / green palette in sage.
+greenColor = "#63775F"
+greenBackgroundColor = "#E3EAE0"
+greenTextColor = "#3F4538"
+
+[theme.sidebar]
+backgroundColor = "#EDE9DF"
+secondaryBackgroundColor = "#F8F4EB" # widgets read as light fields on the sandy sidebar
+textColor = "#3F4538"
+borderColor = "#D6D1C4"
