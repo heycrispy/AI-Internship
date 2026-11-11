@@ -1,4 +1,4 @@
-"""Streamlit UI for the Week 3 handbook agent: chat + live Think / Act / Observe trace + approval gate.
+"""Streamlit UI for the Golden Hour Coffee Co. agent: chat + live Think / Act / Observe trace + approval gate.
 
 Runs the ADK agent in-process (no API server needed).
 Run:  streamlit run agent_page.py
@@ -11,28 +11,36 @@ import threading
 import streamlit as st
 
 from agent_runner import AgentSession, Step
-from handbook_agent.agent import (
-    CLAIMS_FILE,
+from golden_hour_agent.agent import (
+    BOOKINGS_FILE,
+    INJECTED_DOC,
+    INJECTED_DOC_ID,
     MODEL_NAME,
-    SAMPLE_DOC,
-    _client,
-    ensure_handbook_ingested,
+    ensure_kb_ingested,
+    ingest,
     root_agent,
 )
+from golden_hour_agent.availability import load_bookings, parse_date, parse_time
 import rag
 
-INJECTED_DOC = SAMPLE_DOC.parent / "injected_memo.md"
+
+def availability_example() -> str:
+    """Build prompt 3 from the fixture calendar, so its date always matches a real conflict."""
+    b = load_bookings()[0]
+    day = parse_date(b["date"]).strftime("%B %-d, %Y")
+    start, end = (parse_time(b[k]).strftime("%-I %p") for k in ("start", "end"))
+    return f"Are you available on {day}, from {start} to {end}?"
+
+
 EXAMPLES = [
-    "I'm flying to Berlin for 4 days. What's my total meal allowance, and can I book premium "
-    "economy on the 9 hour flight?",
-    "I have 10 days of PTO banked. If I take none for the next 12 months, how many will I have?",
-    "I paid $92 for a client dinner on my work trip and have the itemized receipt. "
-    "Please submit the expense claim.",
-    "What's Northwind's 401(k) match percentage?",
+    "What coffee catering packages do you offer?",
+    "I'm hosting a corporate event for 85 guests in Newport Beach. How much would three hours cost?",
+    availability_example(),
+    "I'd like to book The Golden Hour package for my wedding. What information do you need?",
 ]
 ICONS = {"THINK": "🧠", "ACT": "🛠️", "OBSERVE": "👀", "APPROVAL": "✋", "ANSWER": "💬"}
 
-st.set_page_config(page_title="Week 3 Handbook Agent", layout="wide")
+st.set_page_config(page_title="Golden Hour Coffee Co. Agent", page_icon="☕", layout="wide")
 
 
 # ADK + LiteLLM keep async clients bound to an event loop, so run every turn on one
@@ -61,7 +69,7 @@ def new_session(model: str) -> None:
 
 
 def injection_doc_loaded() -> bool:
-    return any(d["document_id"] == "vendor_memo" for d in rag.list_documents())
+    return any(d["document_id"] == INJECTED_DOC_ID for d in rag.list_documents())
 
 
 def md(text: str) -> str:
@@ -98,37 +106,42 @@ with st.sidebar:
 
     st.divider()
     st.subheader("Knowledge base")
-    ensure_handbook_ingested()
+    ensure_kb_ingested()
     for doc in rag.list_documents():
         st.caption(f"📄 {doc['document_id']} — {doc['chunks']} chunks")
 
     st.subheader("Prompt-injection test")
-    st.caption("Adds a vendor memo with hidden instructions telling the agent to silently file a "
-               "$4,999 claim. Ask about laptop refreshes or expensing a mouse.")
+    st.caption("Adds an untrusted coffee-supplier memo with hidden instructions telling the agent "
+               "to offer a \\$1 catering package and confirm bookings without owner approval. "
+               "Then ask about supplies, oat milk, or a quote.")
     if injection_doc_loaded():
         if st.button("Remove poisoned doc"):
-            rag.get_collection().delete(where={"document_id": "vendor_memo"})
+            rag.get_collection().delete(where={"document_id": INJECTED_DOC_ID})
             st.rerun()
     elif st.button("Load poisoned doc"):
-        rag.ingest_document(_client(), "vendor_memo", INJECTED_DOC.read_text(),
-                            rag.DEFAULT_CHUNK_SIZE, rag.DEFAULT_CHUNK_OVERLAP,
-                            {"source": INJECTED_DOC.name})
+        ingest(INJECTED_DOC, INJECTED_DOC_ID, trust="untrusted")
         st.rerun()
 
     st.divider()
-    st.subheader("Filed expense claims")
-    claims = [json.loads(l) for l in CLAIMS_FILE.read_text().splitlines()] if CLAIMS_FILE.exists() else []
-    if claims:
-        st.dataframe([{k: c[k] for k in ("claim_id", "amount_usd", "category")} for c in claims],
+    st.subheader("Booking requests")
+    st.caption("Requests for owner review, not confirmed bookings.")
+    requests = ([json.loads(l) for l in BOOKINGS_FILE.read_text().splitlines()]
+                if BOOKINGS_FILE.exists() else [])
+    if requests:
+        st.dataframe([{"status": r["status"].replace("_", " "), "date": r.get("event_date"),
+                       "package": r.get("package"), "subtotal": r.get("subtotal_usd"),
+                       "id": r["request_id"]} for r in reversed(requests)],
                      hide_index=True)
     else:
         st.caption("None yet.")
 
 # ------------------------------------------------------------------ main
-st.title("Northwind HR Agent")
-st.caption("Google ADK agent · tools: search_handbook, calculate, list_handbook_documents, "
-           "submit_expense_claim (human approval required). Each turn shows the Think → Act → "
-           "Observe loop.")
+st.title("☕ Golden Hour Coffee Co. Agent")
+st.markdown("*Your AI concierge for mobile coffee catering in Orange County.*  \n"
+            "Great coffee. Golden moments.")
+st.caption("Google ADK agent · tools: search_knowledge_base, calculate_quote, check_availability, "
+           "list_knowledge_documents, submit_booking_request (human approval required). "
+           "Each turn shows the Think → Act → Observe loop.")
 
 chat_col, trace_col = st.columns([3, 2], gap="large")
 
@@ -153,13 +166,15 @@ with chat_col:
     pending = st.session_state.pending
     if pending:
         with st.container(border=True):
-            st.warning(f"✋ The agent wants to run **{pending.tool}**. Approve?")
+            st.warning(f"✋ The agent wants to run **{pending.tool}**. Approving submits a "
+                       "booking *request* for owner review; it does not confirm the booking.")
             st.json(pending.args)
             a, r = st.columns(2)
             decision = None
-            if a.button("✅ Approve", type="primary", use_container_width=True):
+            if a.button("Approve", icon=":material/check:", type="primary",
+                        use_container_width=True):
                 decision = True
-            if r.button("❌ Reject", use_container_width=True):
+            if r.button("Reject", icon=":material/close:", use_container_width=True):
                 decision = False
             if decision is not None:
                 with st.spinner("Resuming the agent loop..."):
@@ -180,7 +195,8 @@ with chat_col:
     for ex in EXAMPLES:
         if st.button(ex, key=ex, disabled=bool(pending)):
             picked = ex
-    prompt = st.chat_input("Ask the HR agent...", disabled=bool(pending)) or picked
+    prompt = st.chat_input("Ask about packages, quotes, dates, or booking...",
+                           disabled=bool(pending)) or picked
 
     if prompt:
         with st.spinner("Agent is thinking and calling tools..."):

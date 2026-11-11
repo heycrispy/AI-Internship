@@ -14,5 +14,5 @@ env/
 # Local vector store
 chroma_db/
 
-# Week 3 agent: claims the agent filed locally (demo side effect)
-expense_claims.jsonl
+# Week 3 agent: booking requests recorded locally (demo side effect)
+booking_requests.jsonl

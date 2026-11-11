@@ -1,4 +1,4 @@
-"""Run the handbook agent one turn at a time and turn ADK events into a Think / Act / Observe trace.
+"""Run the Golden Hour agent one turn at a time and turn ADK events into a Think / Act / Observe trace.
 
 Used by both the CLI proof script (run_agent_demo.py) and the Streamlit UI (agent_page.py).
 
@@ -23,9 +23,9 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-from handbook_agent.agent import root_agent
+from golden_hour_agent.agent import record_human_rejection, root_agent
 
-APP_NAME = "handbook_agent"
+APP_NAME = "golden_hour_agent"
 USER_ID = "employee"
 CONFIRM_CALL = "adk_request_confirmation"
 LOG_FILE = Path(__file__).resolve().parent / "proof" / "agent_trace.log"
@@ -78,12 +78,37 @@ class TurnResult:
 def summarize(tool: str | None, data: dict | None) -> str:
     """Short, readable version of a tool result for logs."""
     data = data or {}
-    if tool == "search_handbook" and "chunks" in data:
+    if tool == "calculate_quote" and "subtotal_usd" in data:
+        return (f"{data['package']}: subtotal ${data['subtotal_usd']}, deposit "
+                f"${data['estimated_deposit_usd']}, balance ${data['remaining_balance_usd']}, "
+                f"unresolved: {len(data['unresolved_charges'])}")
+    if tool == "calculate_quote" and "recommended_quote" in data:
+        r = data["recommended_quote"]
+        return f"recommended {r['package']}: subtotal ${r['subtotal_usd']}, deposit ${r['estimated_deposit_usd']}"
+    if tool == "check_availability" and "status" in data:
+        conflicts = "; ".join(f"{c['event_type']} {c['date']} {c['start']}-{c['end']}"
+                              for c in data.get("conflicts", []))
+        return f"status={data['status']} {conflicts or ' '.join(data.get('reasons', []))}"
+    if tool == "search_knowledge_base" and "chunks" in data:
         hits = ", ".join(f"{c['chunk_id']} ({c['score']:.2f})" for c in data["chunks"][:3])
         warn = "  !! SECURITY WARNING: injection-like text flagged" if "security_warning" in data else ""
         return f"relevant={data.get('relevant')} best={data.get('best_score')} top: {hits}{warn}"
     text = json.dumps(data)
     return text if len(text) <= 220 else text[:220] + "..."
+
+
+def retrieved_sources(steps: list[Step]) -> str:
+    """Deterministic citations: the relevant, non-quarantined chunks that search_knowledge_base
+    actually returned this turn. The model can't fabricate these."""
+    ids: list[str] = []
+    for s in steps:
+        if s.kind == "OBSERVE" and s.tool == "search_knowledge_base" and s.data:
+            quarantined = str(s.data.get("security_warning", ""))
+            for c in s.data.get("chunks", []):
+                if (c["score"] >= s.data.get("threshold", 0) and c["chunk_id"] not in quarantined
+                        and c["chunk_id"] not in ids):
+                    ids.append(c["chunk_id"])
+    return f"\n\nRetrieved sources: {', '.join(ids)}" if ids else ""
 
 
 class AgentSession:
@@ -113,6 +138,9 @@ class AgentSession:
     async def decide(self, pending: PendingApproval, approved: bool) -> TurnResult:
         """Resume a paused loop with the human's approve/reject decision."""
         log.info("HUMAN    %s %s", "APPROVED" if approved else "REJECTED", pending.tool)
+        if not approved:
+            # ADK never runs a rejected tool, so record the outcome here for the history.
+            record_human_rejection(pending.tool, pending.args)
         message = types.Content(
             role="user",
             parts=[
@@ -174,7 +202,7 @@ class AgentSession:
                 self._add(result, Step("OBSERVE", tool=resp.name, data=payload, loop=self.loop))
 
             if texts and not calls and event.is_final_response():
-                answer = " ".join(texts).strip()
+                answer = " ".join(texts).strip() + retrieved_sources(result.steps)
                 result.answer = answer
                 self._add(result, Step("ANSWER", text=answer, loop=self.loop))
 
